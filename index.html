@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Roleta de 7 setores para partidas de Perguntados: toque e o ponteiro gira ate parar numa categoria. Sorteio uniforme, sem vies.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#EFE7DA" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#120D18" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Roleta do Perguntados">
+<meta property="og:description" content="Roleta de 7 setores para partidas de Perguntados, com sorteio uniforme.">
+<meta property="og:image" content="https://felladrin.github.io/roleta-perguntados/screenshots/light.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>*,*::before,*::after{box-sizing:border-box}html{-webkit-text-size-adjust:100%}body{margin:0}</style>
+<title>Roleta do Perguntados</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Archivo:wght@400;500;600&display=swap">
+
+<style>
+  :root{
+    --page:#EFE7DA;
+    --page-2:#E5DACA;
+    --ink:#241B2E;
+    --muted:#6C5F7B;
+    --line:rgba(36,27,46,.16);
+    --board:#1B1424;
+    --board-hi:rgba(247,241,230,.07);
+    --bone:#F7F1E6;
+    --bone-2:#D9CDB9;
+    --board-shadow:0 22px 44px -20px rgba(27,20,36,.55), 0 2px 0 rgba(255,255,255,.5);
+    --chip:rgba(36,27,46,.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --page:#120D18;
+      --page-2:#1B1425;
+      --ink:#F3ECF8;
+      --muted:#9C8FAE;
+      --line:rgba(247,241,230,.14);
+      --board:#241A31;
+      --board-hi:rgba(247,241,230,.05);
+      --board-shadow:0 24px 48px -22px rgba(0,0,0,.85), 0 0 0 1px rgba(247,241,230,.06);
+      --chip:rgba(247,241,230,.07);
+    }
+  }
+  :root[data-theme="dark"]{
+    --page:#120D18;
+    --page-2:#1B1425;
+    --ink:#F3ECF8;
+    --muted:#9C8FAE;
+    --line:rgba(247,241,230,.14);
+    --board:#241A31;
+    --board-hi:rgba(247,241,230,.05);
+    --board-shadow:0 24px 48px -22px rgba(0,0,0,.85), 0 0 0 1px rgba(247,241,230,.06);
+    --chip:rgba(247,241,230,.07);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    background:var(--page);
+    color:var(--ink);
+    font-family:"Archivo","Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  .wrap{
+    width:100%;
+    max-width:520px;
+    margin:0 auto;
+    padding:22px 20px 40px;
+    display:flex;
+    flex-direction:column;
+    gap:20px;
+  }
+
+  /* ---- header ---- */
+  header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+  .brand{display:flex;flex-direction:column;gap:7px}
+  .brand-name{
+    font-family:"Baloo 2","Trebuchet MS",sans-serif;
+    font-weight:800;
+    font-size:1.5rem;
+    line-height:1;
+    letter-spacing:-.01em;
+  }
+  .brand-sub{
+    font-size:.66rem;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--muted);
+    font-weight:500;
+  }
+  .dots{display:flex;gap:5px;align-items:center}
+  .dots i{width:9px;height:9px;border-radius:50%;display:block}
+
+  .controls{display:flex;flex-direction:column;gap:7px;flex:0 0 auto}
+  .toggle{
+    -webkit-appearance:none;appearance:none;
+    display:flex;align-items:center;gap:8px;
+    padding:6px 11px 6px 9px;
+    border:1px solid var(--line);
+    border-radius:999px;
+    background:transparent;
+    color:var(--muted);
+    font-family:inherit;
+    font-size:.72rem;
+    font-weight:600;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    cursor:pointer;
+    transition:color .18s, border-color .18s, background .18s;
+  }
+  .toggle .led{
+    width:8px;height:8px;border-radius:50%;
+    background:transparent;
+    box-shadow:inset 0 0 0 1.5px currentColor;
+    transition:background .18s, box-shadow .18s;
+  }
+  .toggle[aria-pressed="true"]{color:var(--ink);border-color:var(--ink)}
+  .toggle[aria-pressed="true"] .led{background:currentColor;box-shadow:none}
+  .toggle:hover{background:var(--chip)}
+  .toggle:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+  /* ---- board ---- */
+  .board{
+    position:relative;
+    width:100%;
+    aspect-ratio:1;
+    border:0;
+    padding:4.5%;
+    border-radius:16px;
+    background:var(--board);
+    box-shadow:var(--board-shadow);
+    cursor:pointer;
+    display:block;
+    -webkit-tap-highlight-color:transparent;
+    transition:transform .25s cubic-bezier(.2,.8,.3,1);
+  }
+  .board:active{transform:scale(.988)}
+  .board:focus-visible{outline:3px solid var(--ink);outline-offset:4px}
+  .board[disabled]{cursor:default}
+  .board svg{display:block;width:100%;height:100%;overflow:visible}
+  .pin{
+    position:absolute;width:5px;height:5px;border-radius:50%;
+    background:var(--bone-2);opacity:.5;
+  }
+  .pin.t{top:7px;left:50%;transform:translateX(-50%)}
+  .pin.b{bottom:7px;left:50%;transform:translateX(-50%)}
+  .pin.l{left:7px;top:50%;transform:translateY(-50%)}
+  .pin.r{right:7px;top:50%;transform:translateY(-50%)}
+
+  /* The arrow is rotated with the SVG transform attribute, which carries its own
+     centre — never add transform-origin here or the two compose and it orbits. */
+
+  /* ---- result ---- */
+  .result{
+    display:flex;align-items:center;gap:14px;
+    min-height:84px;
+    padding:14px 18px;
+    border-radius:14px;
+    background:var(--chip);
+    border:1px solid var(--line);
+    transition:background .3s, border-color .3s;
+  }
+  .result[data-state="hit"]{
+    background:var(--hit);
+    border-color:transparent;
+    animation:land .5s cubic-bezier(.2,1.3,.4,1);
+  }
+  @keyframes land{
+    0%{transform:scale(.97)}
+    60%{transform:scale(1.012)}
+    100%{transform:scale(1)}
+  }
+  .result-badge{
+    flex:0 0 auto;width:46px;height:46px;border-radius:12px;
+    display:grid;place-items:center;
+    background:rgba(255,255,255,.22);
+    color:var(--hit-ink,var(--muted));
+  }
+  .result[data-state="idle"] .result-badge{background:transparent;box-shadow:inset 0 0 0 1.5px var(--line);color:var(--muted)}
+  .result-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .result-eyebrow{
+    font-size:.65rem;letter-spacing:.16em;text-transform:uppercase;font-weight:600;
+    color:var(--muted);
+  }
+  .result[data-state="hit"] .result-eyebrow{color:rgba(255,255,255,.78)}
+  .result-name{
+    font-family:"Baloo 2","Trebuchet MS",sans-serif;
+    font-weight:800;
+    font-size:clamp(1.6rem,7.5vw,2.35rem);
+    line-height:1.02;
+    text-wrap:balance;
+    color:var(--ink);
+  }
+  .result[data-state="hit"] .result-name{color:#fff}
+  .result[data-state="idle"] .result-name{color:var(--muted);font-size:clamp(1.15rem,5vw,1.45rem)}
+
+  /* ---- history ---- */
+  .history{display:flex;flex-direction:column;gap:9px}
+  .history-head{
+    display:flex;justify-content:space-between;align-items:baseline;
+    font-size:.65rem;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--muted);font-weight:600;
+  }
+  .history-head b{font-variant-numeric:tabular-nums;font-weight:600}
+  .strip{display:flex;flex-wrap:wrap;gap:6px;min-height:26px}
+  .strip .chip{
+    display:flex;align-items:center;gap:6px;
+    padding:4px 9px 4px 7px;border-radius:999px;
+    background:var(--chip);
+    font-size:.72rem;font-weight:500;color:var(--ink);
+    animation:pop .3s ease-out;
+  }
+  .strip .chip:first-child{background:var(--dot);color:#fff}
+  .strip .chip:first-child .swatch{background:rgba(255,255,255,.9)}
+  .strip .swatch{width:8px;height:8px;border-radius:50%;background:var(--dot)}
+  .strip .empty{font-size:.78rem;color:var(--muted)}
+  @keyframes pop{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+
+  footer{
+    font-size:.72rem;line-height:1.55;color:var(--muted);
+    border-top:1px solid var(--line);padding-top:14px;
+  }
+  kbd{
+    font-family:inherit;font-size:.7rem;font-weight:600;
+    border:1px solid var(--line);border-radius:5px;padding:1px 5px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.01ms !important;animation-iteration-count:1 !important}
+    .board,.result{transition:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <span class="brand-name">Roleta</span>
+      <span class="dots" id="dots" aria-hidden="true"></span>
+      <span class="brand-sub" id="brandSub">7 categorias</span>
+    </div>
+    <div class="controls">
+      <button class="toggle" id="tCrown" type="button" aria-pressed="true">
+        <span class="led" aria-hidden="true"></span>Coroa
+      </button>
+      <button class="toggle" id="tSound" type="button" aria-pressed="true">
+        <span class="led" aria-hidden="true"></span>Som
+      </button>
+    </div>
+  </header>
+
+  <button class="board" id="board" type="button" aria-describedby="result">
+    <span class="pin t" aria-hidden="true"></span>
+    <span class="pin b" aria-hidden="true"></span>
+    <span class="pin l" aria-hidden="true"></span>
+    <span class="pin r" aria-hidden="true"></span>
+    <svg viewBox="0 0 100 100" aria-hidden="true">
+      <defs>
+        <filter id="drop" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="0.9" dy="1.8" stdDeviation="1.5" flood-color="#0a0710" flood-opacity="0.45"/>
+        </filter>
+        <radialGradient id="sheen" cx="30%" cy="24%" r="78%">
+          <stop offset="0" stop-color="#fff" stop-opacity=".14"/>
+          <stop offset="55%" stop-color="#fff" stop-opacity="0"/>
+          <stop offset="1" stop-color="#000" stop-opacity=".14"/>
+        </radialGradient>
+
+        <symbol id="ic-globe" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9"/><path d="M3 12h18"/>
+          <path d="M12 3c3.3 3 3.3 15 0 18M12 3c-3.3 3-3.3 15 0 18"/>
+        </symbol>
+        <symbol id="ic-flask" viewBox="0 0 24 24">
+          <path d="M9 3h6"/>
+          <path d="M10.5 3v7.4L6.7 18.5A2 2 0 0 0 8.5 21.4h7A2 2 0 0 0 17.3 18.5L13.5 10.4V3"/>
+          <path d="M8.4 15.2h7.2"/>
+        </symbol>
+        <symbol id="ic-canvas" viewBox="0 0 24 24">
+          <rect x="2.8" y="4.4" width="18.4" height="15.2" rx="2.2"/>
+          <path d="M2.8 15.4l4.6-4.3 3.5 3.2 3.7-4.1 6.6 6.2"/>
+          <circle cx="8.3" cy="8.7" r="1.5"/>
+        </symbol>
+        <symbol id="ic-ball" viewBox="0 0 24 24">
+          <g transform="rotate(-42 12 12)">
+            <ellipse cx="12" cy="12" rx="9" ry="5.7"/>
+            <path d="M7.2 12h9.6M10 9.9v4.2M12.4 9.7v4.6M14.8 9.9v4.2"/>
+          </g>
+        </symbol>
+        <symbol id="ic-crown" viewBox="0 0 24 24">
+          <path d="M2.8 7.6 7.2 11 12 3.4 16.8 11l4.4-3.4-2 11.4H4.8L2.8 7.6Z"/>
+          <path d="M5.4 21.2h13.2"/>
+        </symbol>
+        <symbol id="ic-popcorn" viewBox="0 0 24 24">
+          <path d="M6.4 9.2h11.2l-1.3 11.4a1.1 1.1 0 0 1-1.1 1H8.8a1.1 1.1 0 0 1-1.1-1L6.4 9.2Z"/>
+          <path d="M9.4 9.6l.5 11M12 9.6v11M14.6 9.6l-.5 11"/>
+          <path d="M8.6 9.2a2.3 2.3 0 1 1 1.5-4 2.5 2.5 0 0 1 4.3 0 2.3 2.3 0 1 1 1.4 4"/>
+        </symbol>
+        <symbol id="ic-ask" viewBox="0 0 24 24">
+          <path d="M8.3 8.9a3.7 3.7 0 1 1 5.9 3c-1.3 1-2.2 1.7-2.2 3.4"/>
+          <circle cx="12" cy="18.8" r="1.25" stroke="none" fill="currentColor"/>
+        </symbol>
+        <symbol id="ic-book" viewBox="0 0 24 24">
+          <path d="M12 6.6C10 4.7 7.1 3.9 3.2 4.3v13.4c3.9-.4 6.8.4 8.8 2.3 2-1.9 4.9-2.7 8.8-2.3V4.3c-3.9-.4-6.8.4-8.8 2.3Z"/>
+          <path d="M12 6.6v13.4"/>
+        </symbol>
+      </defs>
+
+      <circle cx="50" cy="50" r="48" fill="#F7F1E6"/>
+      <g id="wedges"></g>
+      <circle cx="50" cy="50" r="45.2" fill="url(#sheen)" pointer-events="none"/>
+
+      <g id="arrow" filter="url(#drop)">
+        <circle cx="50" cy="59.5" r="9.2" fill="#F7F1E6"/>
+        <path d="M50 14.5 61.5 31.5 55.2 31.5 55.6 59 44.4 59 44.8 31.5 38.5 31.5Z"
+              fill="#F7F1E6" stroke="#F7F1E6" stroke-width="2.2" stroke-linejoin="round"/>
+        <circle cx="50" cy="50" r="1.6" fill="#CDC0A9"/>
+      </g>
+    </svg>
+  </button>
+
+  <div class="result" id="result" data-state="idle" role="status" aria-live="polite">
+    <span class="result-badge" id="resultBadge" aria-hidden="true"></span>
+    <span class="result-text">
+      <span class="result-eyebrow" id="resultEyebrow">sua vez</span>
+      <span class="result-name" id="resultName">Toque para girar</span>
+    </span>
+  </div>
+
+  <section class="history">
+    <div class="history-head">
+      <span>Últimas rodadas</span>
+      <b id="spinCount">0</b>
+    </div>
+    <div class="strip" id="strip"><span class="empty">Nenhuma rodada ainda.</span></div>
+  </section>
+
+  <footer>
+    Roleta caseira para partidas de Perguntados: toque no tabuleiro ou aperte <kbd>espaço</kbd>.
+    Sorteio uniforme entre os setores, sem viés. Não é um produto oficial.
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var CATS = [
+    { id:'ciencias',      name:'Ciências',      color:'#4CA02F', ink:'#2A6118', icon:'ic-flask'   },
+    { id:'arte',          name:'Arte',          color:'#F3C218', ink:'#8F6E04', icon:'ic-canvas'  },
+    { id:'esportes',      name:'Esportes',      color:'#E97A1E', ink:'#8E410A', icon:'ic-ball'    },
+    { id:'coroa',         name:'Coroa',         color:'#D82C2A', ink:'#821110', icon:'ic-crown', optional:true },
+    { id:'entretenimento',name:'Entretenimento',color:'#D5197A', ink:'#800846', icon:'ic-popcorn' },
+    { id:'historia',      name:'História',      color:'#8E2C8F', ink:'#521253', icon:'ic-book'    },
+    { id:'geografia',     name:'Geografia',     color:'#2E56BE', ink:'#152C72', icon:'ic-globe'   }
+  ];
+
+  var R = 45.2, START = -90, DUR = 4200;
+  var el = {
+    board: document.getElementById('board'),
+    wedges: document.getElementById('wedges'),
+    arrow: document.getElementById('arrow'),
+    dots: document.getElementById('dots'),
+    brandSub: document.getElementById('brandSub'),
+    result: document.getElementById('result'),
+    badge: document.getElementById('resultBadge'),
+    eyebrow: document.getElementById('resultEyebrow'),
+    name: document.getElementById('resultName'),
+    strip: document.getElementById('strip'),
+    count: document.getElementById('spinCount'),
+    tCrown: document.getElementById('tCrown'),
+    tSound: document.getElementById('tSound')
+  };
+
+  var store = {
+    get: function(k, d){ try { var v = localStorage.getItem(k); return v === null ? d : v === '1'; } catch(e){ return d; } },
+    set: function(k, v){ try { localStorage.setItem(k, v ? '1' : '0'); } catch(e){} }
+  };
+
+  var state = {
+    crown: store.get('roleta.crown', true),
+    sound: store.get('roleta.sound', true),
+    angle: -25.714,   // resting up-left, mid-sector, never on a border
+    spinning: false,
+    history: []
+  };
+
+  function active(){
+    return state.crown ? CATS : CATS.filter(function(c){ return !c.optional; });
+  }
+  function step(){ return 360 / active().length; }
+
+  /* ---------- geometry ---------- */
+  function point(deg, r){
+    var a = deg * Math.PI / 180;
+    return [(50 + r * Math.cos(a)), (50 + r * Math.sin(a))];
+  }
+  function wedgePath(a0, a1, r){
+    var p0 = point(a0, r), p1 = point(a1, r);
+    var large = (a1 - a0) > 180 ? 1 : 0;
+    return 'M50 50 L' + p0[0].toFixed(3) + ' ' + p0[1].toFixed(3) +
+           ' A' + r + ' ' + r + ' 0 ' + large + ' 1 ' + p1[0].toFixed(3) + ' ' + p1[1].toFixed(3) + ' Z';
+  }
+  // Index of the sector the arrow tip points at, for a given arrow rotation.
+  function indexAt(angle){
+    var n = active().length, s = 360 / n;
+    var m = ((angle % 360) + 360) % 360;
+    return Math.min(n - 1, Math.floor(m / s));
+  }
+
+  function buildWheel(){
+    var cats = active(), s = step(), svg = '';
+    cats.forEach(function(c, i){
+      var a0 = START + i * s, a1 = a0 + s, mid = a0 + s / 2;
+      svg += '<path d="' + wedgePath(a0, a1, R) + '" fill="' + c.color + '"/>';
+      var pos = point(mid, R * 0.63);
+      var rot = mid + 90;
+      rot = ((rot + 180) % 360 + 360) % 360 - 180;
+      if (rot > 90) rot -= 180;
+      if (rot < -90) rot += 180;
+      svg += '<g transform="translate(' + pos[0].toFixed(2) + ' ' + pos[1].toFixed(2) + ') rotate(' + rot.toFixed(2) + ')"' +
+             ' fill="none" stroke="' + c.ink + '" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"' +
+             ' opacity="0.85" pointer-events="none">' +
+             '<use href="#' + c.icon + '" x="-7.5" y="-7.5" width="15" height="15"/></g>';
+    });
+    el.wedges.innerHTML = svg;
+
+    el.dots.innerHTML = cats.map(function(c){
+      return '<i style="background:' + c.color + '"></i>';
+    }).join('');
+    el.brandSub.textContent = cats.length + ' categorias';
+    el.board.setAttribute('aria-label', 'Girar a roleta de ' + cats.length + ' categorias');
+    setArrow(state.angle);
+  }
+
+  function setArrow(a){
+    el.arrow.setAttribute('transform', 'rotate(' + a.toFixed(3) + ' 50 50)');
+  }
+
+  function setBadge(icon){
+    el.badge.innerHTML = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#' + icon + '"/></svg>';
+  }
+
+  function idle(){
+    el.result.dataset.state = 'idle';
+    el.eyebrow.textContent = 'sua vez';
+    el.name.textContent = 'Toque para girar';
+    setBadge('ic-ask');
+  }
+
+  /* ---------- sound ---------- */
+  var ac = null;
+  function audio(){
+    if (!state.sound) return null;
+    try {
+      if (!ac) { var C = window.AudioContext || window.webkitAudioContext; if (!C) return null; ac = new C(); }
+      if (ac.state === 'suspended') ac.resume();
+      return ac;
+    } catch(e){ return null; }
+  }
+  function blip(freqFrom, freqTo, dur, vol, type){
+    var c = audio(); if (!c) return;
+    try {
+      var t = c.currentTime, o = c.createOscillator(), g = c.createGain();
+      o.type = type || 'triangle';
+      o.frequency.setValueAtTime(freqFrom, t);
+      o.frequency.exponentialRampToValueAtTime(freqTo, t + dur);
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.0004, t + dur);
+      o.connect(g); g.connect(c.destination);
+      o.start(t); o.stop(t + dur + 0.02);
+    } catch(e){}
+  }
+  var tick = function(){ blip(1180, 460, 0.05, 0.16); };
+  var landed = function(){
+    blip(560, 540, 0.10, 0.13, 'sine');
+    setTimeout(function(){ blip(840, 820, 0.22, 0.11, 'sine'); }, 95);
+  };
+
+  /* ---------- spin ---------- */
+  function spin(){
+    if (state.spinning) return;
+    var cats = active(), s = step();
+    var target = Math.floor(Math.random() * cats.length);
+    // land inside the sector, away from the borders
+    var offset = (target + 0.5) * s + (Math.random() - 0.5) * s * 0.62;
+    var turns = 4 + Math.floor(Math.random() * 3);
+    var from = state.angle;
+    var delta = turns * 360 + (((offset - from) % 360) + 360) % 360;
+    var to = from + delta;
+
+    state.spinning = true;
+    el.board.disabled = true;
+    el.result.dataset.state = 'idle';
+    el.eyebrow.textContent = 'girando';
+    el.name.textContent = 'Rodando…';
+
+    var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced){
+      state.angle = to; setArrow(to); finish(target); return;
+    }
+
+    var overshoot = 3.4;
+    var hold = 0.87;
+    var lastIdx = indexAt(from);
+    var t0 = null;
+
+    function frame(ts){
+      if (t0 === null) t0 = ts;
+      var t = Math.min(1, (ts - t0) / DUR);
+      var a;
+      if (t < hold){
+        var u = t / hold;
+        a = from + (delta + overshoot) * (1 - Math.pow(1 - u, 5));
+      } else {
+        var v = (t - hold) / (1 - hold);
+        a = to + overshoot * Math.pow(1 - v, 2) * Math.cos(v * Math.PI * 0.5);
+      }
+      state.angle = a;
+      setArrow(a);
+      var idx = indexAt(a);
+      if (idx !== lastIdx){ lastIdx = idx; tick(); }
+      if (t < 1) requestAnimationFrame(frame);
+      else { state.angle = to; setArrow(to); finish(target); }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function finish(i){
+    var c = active()[i];
+    state.spinning = false;
+    el.board.disabled = false;
+    el.result.style.setProperty('--hit', c.color);
+    el.result.style.setProperty('--hit-ink', '#fff');
+    el.result.dataset.state = 'hit';
+    el.eyebrow.textContent = 'caiu em';
+    el.name.textContent = c.name;
+    setBadge(c.icon);
+    state.history.unshift(c);
+    if (state.history.length > 8) state.history.pop();
+    renderHistory();
+    landed();
+  }
+
+  function renderHistory(){
+    el.count.textContent = state.history.length;
+    if (!state.history.length){
+      el.strip.innerHTML = '<span class="empty">Nenhuma rodada ainda.</span>';
+      return;
+    }
+    el.strip.innerHTML = state.history.map(function(c){
+      return '<span class="chip" style="--dot:' + c.color + '">' +
+             '<span class="swatch"></span>' + c.name + '</span>';
+    }).join('');
+  }
+
+  /* ---------- controls ---------- */
+  el.board.addEventListener('click', spin);
+  document.addEventListener('keydown', function(e){
+    if (e.code !== 'Space' && e.key !== ' ') return;
+    var a = document.activeElement;
+    if (a && a.tagName === 'BUTTON') return; // native activation handles it
+    e.preventDefault();
+    spin();
+  });
+
+  el.tCrown.addEventListener('click', function(){
+    if (state.spinning) return;
+    state.crown = !state.crown;
+    store.set('roleta.crown', state.crown);
+    el.tCrown.setAttribute('aria-pressed', String(state.crown));
+    if (!state.crown) state.history = state.history.filter(function(c){ return c.id !== 'coroa'; });
+    buildWheel();
+    renderHistory();
+    idle();
+  });
+
+  el.tSound.addEventListener('click', function(){
+    state.sound = !state.sound;
+    store.set('roleta.sound', state.sound);
+    el.tSound.setAttribute('aria-pressed', String(state.sound));
+    if (state.sound) blip(880, 860, 0.09, 0.1, 'sine');
+  });
+
+  el.tCrown.setAttribute('aria-pressed', String(state.crown));
+  el.tSound.setAttribute('aria-pressed', String(state.sound));
+  buildWheel();
+  renderHistory();
+  idle();
+})();
+</script>
+</body>
+</html>
