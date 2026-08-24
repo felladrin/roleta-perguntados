@@ -2,7 +2,7 @@
 
 A spinner wheel for Perguntados / Trivia Crack board game sessions. Tap the board and the pointer spins until it stops on a category.
 
-**Live:** https://felladrin.github.io/roleta-perguntados/
+**Live:** https://www.victornogueira.app/roleta-perguntados/
 
 | Light | Dark |
 | --- | --- |
