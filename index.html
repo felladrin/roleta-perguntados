@@ -501,6 +501,37 @@
     setTimeout(function(){ blip(840, 820, 0.22, 0.11, 'sine'); }, 95);
   };
 
+  /* ---------- wake lock ---------- */
+  /* The screen stays on while the tab is visible: a round is read off the board, and a phone
+     that sleeps between the spin and the announcement stops the party. The platform drops
+     the lock on its own whenever the document stops being visible, and a released sentinel
+     cannot be reused, so a fresh one is requested on every return to visibility. A lock
+     the platform took back for another reason (power saving, low battery) is cleared here
+     and replaced on that next round trip, not re-requested against its own decision.
+     Needs a secure context (HTTPS, or localhost); browsers without the API get no lock and
+     no error. https://developer.mozilla.org/en-US/docs/Web/API/Screen_Wake_Lock_API */
+  var wakeLock = null;
+  var wakeLockPending = false;
+
+  function keepAwake(){
+    if (!('wakeLock' in navigator) || wakeLock || wakeLockPending) return;
+    if (document.visibilityState !== 'visible') return;
+    wakeLockPending = true;
+    navigator.wakeLock.request('screen').then(function(sentinel){
+      wakeLockPending = false;
+      // The document can have gone hidden while this request was in flight, in which case the
+      // platform already dropped it and the release event fired before any listener was
+      // attached. Holding that sentinel would leave the page thinking it owns a live lock.
+      if (sentinel.released) return;
+      wakeLock = sentinel;
+      sentinel.addEventListener('release', function(){
+        if (wakeLock === sentinel) wakeLock = null;
+      });
+    }, function(){
+      wakeLockPending = false;
+    });
+  }
+
   /* ---------- spin ---------- */
   function spin(){
     if (state.spinning) return;
@@ -616,9 +647,11 @@
 
   el.tCrown.setAttribute('aria-pressed', String(state.crown));
   el.tSound.setAttribute('aria-pressed', String(state.sound));
+  document.addEventListener('visibilitychange', keepAwake);
   buildWheel();
   renderHistory();
   idle();
+  keepAwake();
 })();
 </script>
 </body>

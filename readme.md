@@ -15,6 +15,7 @@ A spinner wheel for Perguntados / Trivia Crack board game sessions. Tap the boar
 - One tick per sector the pointer crosses, decelerating along with it. **Som** turns it off.
 - Last eight rounds stay on screen.
 - Space bar spins. Honours `prefers-reduced-motion` (jumps straight to the result) and follows the system light/dark theme.
+- The screen stays on while the tab is visible, so a phone passed around the table does not sleep between the spin and the announcement. Uses the [Screen Wake Lock API](https://developer.mozilla.org/en-US/docs/Web/API/Screen_Wake_Lock_API): Baseline since March 2025, needs a secure context, and browsers without it get no lock and no error. The platform drops the lock when the tab goes to the background, and the page asks for a new one when it comes back.
 - The Coroa and Som choices persist in `localStorage`.
 
 ## Fair draw
@@ -49,6 +50,7 @@ It serves the repo over a throwaway local port and drives headless Chromium:
 
 - Every wedge fill, legend dot and icon stroke, with Coroa on (seven sectors) and off (six).
 - A forced stop on each of the seven categories, checking the result card carries that category's color and its text clears 3:1 against it. The palette has a bright yellow, so the text color is derived per category instead of fixed white.
+- The wake lock, with `navigator.wakeLock` and `document.visibilityState` stubbed so no real phone has to be put to sleep: requested on load, never doubled while one is held or in flight, re-requested on every return to visibility, and inert where the API is missing.
 - When regenerating the screenshots: the announced category, the history chips and the sector count.
 
 The fair-draw simulation above was run ad hoc and is not part of this script.
