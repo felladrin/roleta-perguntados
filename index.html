@@ -188,7 +188,7 @@
     font-size:.65rem;letter-spacing:.16em;text-transform:uppercase;font-weight:600;
     color:var(--muted);
   }
-  .result[data-state="hit"] .result-eyebrow{color:rgba(255,255,255,.78)}
+  .result[data-state="hit"] .result-eyebrow{color:var(--hit-soft,rgba(255,255,255,.78))}
   .result-name{
     font-family:"Baloo 2","Trebuchet MS",sans-serif;
     font-weight:800;
@@ -197,7 +197,7 @@
     text-wrap:balance;
     color:var(--ink);
   }
-  .result[data-state="hit"] .result-name{color:#fff}
+  .result[data-state="hit"] .result-name{color:var(--hit-ink,#fff)}
   .result[data-state="idle"] .result-name{color:var(--muted);font-size:clamp(1.15rem,5vw,1.45rem)}
 
   /* ---- history ---- */
@@ -216,8 +216,8 @@
     font-size:.72rem;font-weight:500;color:var(--ink);
     animation:pop .3s ease-out;
   }
-  .strip .chip:first-child{background:var(--dot);color:#fff}
-  .strip .chip:first-child .swatch{background:rgba(255,255,255,.9)}
+  .strip .chip:first-child{background:var(--dot);color:var(--chip-ink,#fff)}
+  .strip .chip:first-child .swatch{background:var(--chip-swatch,rgba(255,255,255,.9))}
   .strip .swatch{width:8px;height:8px;border-radius:50%;background:var(--dot)}
   .strip .empty{font-size:.78rem;color:var(--muted)}
   @keyframes pop{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
@@ -350,14 +350,33 @@
   "use strict";
 
   var CATS = [
-    { id:'ciencias',      name:'Ciências',      color:'#4CA02F', ink:'#2A6118', icon:'ic-flask'   },
-    { id:'arte',          name:'Arte',          color:'#F3C218', ink:'#8F6E04', icon:'ic-canvas'  },
-    { id:'esportes',      name:'Esportes',      color:'#E97A1E', ink:'#8E410A', icon:'ic-ball'    },
-    { id:'coroa',         name:'Coroa',         color:'#D82C2A', ink:'#821110', icon:'ic-crown', optional:true },
-    { id:'entretenimento',name:'Entretenimento',color:'#D5197A', ink:'#800846', icon:'ic-popcorn' },
-    { id:'historia',      name:'História',      color:'#8E2C8F', ink:'#521253', icon:'ic-book'    },
-    { id:'geografia',     name:'Geografia',     color:'#2E56BE', ink:'#152C72', icon:'ic-globe'   }
+    { id:'ciencias',      name:'Ciências',      color:'#58AB60', ink:'#2C5630', icon:'ic-flask'   },
+    { id:'arte',          name:'Arte',          color:'#E1332D', ink:'#701A16', icon:'ic-canvas'  },
+    { id:'esportes',      name:'Esportes',      color:'#F19106', ink:'#784803', icon:'ic-ball'    },
+    { id:'coroa',         name:'Coroa',         color:'#83509C', ink:'#42284E', icon:'ic-crown', optional:true },
+    { id:'entretenimento',name:'Entretenimento',color:'#D55F99', ink:'#6A304C', icon:'ic-popcorn' },
+    { id:'historia',      name:'História',      color:'#ECD207', ink:'#766904', icon:'ic-book'    },
+    { id:'geografia',     name:'Geografia',     color:'#3570B2', ink:'#1A3859', icon:'ic-globe'   }
   ];
+
+  /* Text drawn on a category fill: white where it holds up, a dark tint of the fill where it does not.
+     História is a bright yellow (#ECD207) — white on it lands at 1.5:1, unreadable. */
+  function luminance(hex){
+    var v = [1,3,5].map(function(i){
+      var c = parseInt(hex.substr(i, 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+  }
+  function shade(hex, k){
+    return '#' + [1,3,5].map(function(i){
+      var c = Math.max(0, Math.min(255, Math.round(parseInt(hex.substr(i, 2), 16) * k)));
+      return (c < 16 ? '0' : '') + c.toString(16);
+    }).join('');
+  }
+  function onFill(hex){
+    return 1.05 / (luminance(hex) + 0.05) >= 3 ? '#fff' : shade(hex, 0.25);
+  }
 
   var R = 45.2, START = -90, DUR = 4200;
   var el = {
@@ -533,10 +552,12 @@
 
   function finish(i){
     var c = active()[i];
+    var ink = onFill(c.color);
     state.spinning = false;
     el.board.disabled = false;
     el.result.style.setProperty('--hit', c.color);
-    el.result.style.setProperty('--hit-ink', '#fff');
+    el.result.style.setProperty('--hit-ink', ink);
+    el.result.style.setProperty('--hit-soft', ink === '#fff' ? 'rgba(255,255,255,.78)' : 'rgba(0,0,0,.62)');
     el.result.dataset.state = 'hit';
     el.eyebrow.textContent = 'caiu em';
     el.name.textContent = c.name;
@@ -553,8 +574,14 @@
       el.strip.innerHTML = '<span class="empty">Nenhuma rodada ainda.</span>';
       return;
     }
-    el.strip.innerHTML = state.history.map(function(c){
-      return '<span class="chip" style="--dot:' + c.color + '">' +
+    el.strip.innerHTML = state.history.map(function(c, i){
+      var style = '--dot:' + c.color;
+      if (i === 0){
+        var ink = onFill(c.color);
+        style += ';--chip-ink:' + ink +
+                 ';--chip-swatch:' + (ink === '#fff' ? 'rgba(255,255,255,.9)' : 'rgba(0,0,0,.55)');
+      }
+      return '<span class="chip" style="' + style + '">' +
              '<span class="swatch"></span>' + c.name + '</span>';
     }).join('');
   }
