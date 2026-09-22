@@ -138,6 +138,147 @@ for (const c of CATS) {
   await ctx.close();
 }
 
+// ---- wake lock: the screen stays on while the page is visible ----
+// The page asks for the Screen Wake Lock on load and re-asks on every return to visibility,
+// because the platform releases the sentinel on its own when the document goes hidden and a
+// released sentinel cannot be reused. navigator.wakeLock and document.visibilityState are
+// stubbed here, so the logic is checked deterministically rather than by putting a real
+// phone to sleep.
+async function wakeLockHarness({ supported = true, visibleAtLoad = 'visible', deferred = false } = {}) {
+  const ctx = await browser.newContext({ viewport: { width: 420, height: 820 } });
+  await ctx.addInitScript(({ supported, visibleAtLoad, deferred }) => {
+    const wl = { requests: [], sentinels: [], resolvers: [] };
+    window.__wl = wl;
+
+    let visible = visibleAtLoad;
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visible });
+    // Going hidden drops every live sentinel, the way the platform does: a lock granted before
+    // the hide cannot survive it, and the sentinel is dead afterwards.
+    window.__setVisible = (v) => {
+      visible = v;
+      if (v === 'hidden') {
+        wl.sentinels.forEach((s) => { if (!s.released) { s.released = true; s.dispatchEvent(new Event('release')); } });
+      }
+      document.dispatchEvent(new Event('visibilitychange'));
+    };
+    window.__settle = () => { const rs = wl.resolvers.splice(0); rs.forEach((f) => f()); };
+
+    if (!supported) {
+      // Chromium ships the real API, so "no API" has to delete it: otherwise the scenario keeps
+      // a live navigator.wakeLock and never exercises the feature-detection guard.
+      delete Navigator.prototype.wakeLock;
+      return;
+    }
+
+    class FakeSentinel extends EventTarget {
+      constructor() { super(); this.released = false; }
+      release() { this.released = true; this.dispatchEvent(new Event('release')); return Promise.resolve(); }
+    }
+
+    Object.defineProperty(navigator, 'wakeLock', {
+      configurable: true,
+      value: {
+        request(type) {
+          const s = new FakeSentinel();
+          wl.requests.push(type);
+          wl.sentinels.push(s);
+          if (!deferred) return Promise.resolve(s);
+          return new Promise((resolve) => { wl.resolvers.push(() => resolve(s)); });
+        },
+      },
+    });
+  }, { supported, visibleAtLoad, deferred });
+
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(BASE, { waitUntil: 'load' });
+  await page.waitForTimeout(150);
+  return { ctx, page, errors };
+}
+
+const wlReqs = (page) => page.evaluate(() => window.__wl.requests.slice());
+const wlHeld = (page) => page.evaluate(() => window.__wl.sentinels.filter((s) => !s.released).length);
+
+// held while visible, re-requested after the platform drops it on a hide
+{
+  const { ctx, page, errors } = await wakeLockHarness();
+  check(JSON.stringify(await wlReqs(page)) === '["screen"]', `wake lock: 1 request do tipo screen no load (${JSON.stringify(await wlReqs(page))})`);
+  check((await wlHeld(page)) === 1, `wake lock: o request do load voltou um sentinel nao liberado (${await wlHeld(page)})`);
+
+  // a visibilitychange that arrives while a live lock is already held must not ask for a second one
+  await page.evaluate(() => window.__setVisible('visible'));
+  await page.waitForTimeout(120);
+  check((await wlReqs(page)).length === 1, `wake lock: visibilitychange redundante com lock vivo nao pede outro (${(await wlReqs(page)).length} requests)`);
+
+  await page.evaluate(() => window.__setVisible('hidden'));
+  await page.waitForTimeout(80);
+  await page.evaluate(() => window.__setVisible('visible'));
+  await page.waitForTimeout(150);
+  check((await wlReqs(page)).length === 2, `wake lock: re-request ao voltar a visibilidade (${(await wlReqs(page)).length} requests)`);
+
+  // the platform takes the lock back while the page stays visible (power saving): the release
+  // handler must clear the reference, or the next round trip finds a "held" lock already dead
+  await page.evaluate(() => window.__wl.sentinels[1].release());
+  await page.waitForTimeout(80);
+  check((await wlReqs(page)).length === 2, `wake lock: revogado em visibilidade, nao re-pede na hora (${(await wlReqs(page)).length} requests)`);
+  await page.evaluate(() => window.__setVisible('hidden'));
+  await page.evaluate(() => window.__setVisible('visible'));
+  await page.waitForTimeout(150);
+  check((await wlReqs(page)).length === 3, `wake lock: re-request apos a plataforma revogar o sentinel (${(await wlReqs(page)).length} requests)`);
+  check(errors.length === 0, `wake lock: sem erros de pagina (${errors.join(' | ') || 'nenhum'})`);
+  await ctx.close();
+}
+
+// opened in a background tab: nothing requested until it becomes visible
+{
+  const { ctx, page } = await wakeLockHarness({ visibleAtLoad: 'hidden' });
+  check((await wlReqs(page)).length === 0, `wake lock: nenhum request com o documento oculto no load (${(await wlReqs(page)).length})`);
+  await page.evaluate(() => window.__setVisible('visible'));
+  await page.waitForTimeout(150);
+  check((await wlReqs(page)).length === 1, `wake lock: request ao abrir a aba (${(await wlReqs(page)).length})`);
+  await ctx.close();
+}
+
+// a visibility round trip while a request is in flight must not stack a second one, and a
+// sentinel that arrives already released must not be mistaken for a live lock
+{
+  const { ctx, page } = await wakeLockHarness({ deferred: true });
+  check((await wlReqs(page)).length === 1, `wake lock: request pendente apos o load (${(await wlReqs(page)).length})`);
+  await page.evaluate(() => { window.__setVisible('hidden'); window.__setVisible('visible'); });
+  await page.waitForTimeout(80);
+  check((await wlReqs(page)).length === 1, `wake lock: round trip com request em voo nao empilha (${(await wlReqs(page)).length})`);
+  await page.evaluate(() => window.__settle());
+  await page.waitForTimeout(150);
+  // the sentinel that arrives here was already released by the hide above, so the page must not
+  // treat it as a lock it owns. That is proven by the next check: a page holding the dead one
+  // would never ask again. Counting the stub's unreleased sentinels here would pass either way.
+  await page.evaluate(() => { window.__setVisible('hidden'); window.__setVisible('visible'); });
+  await page.waitForTimeout(150);
+  check((await wlReqs(page)).length === 2, `wake lock: round trip seguinte volta a pedir (${(await wlReqs(page)).length})`);
+  await page.evaluate(() => window.__settle());
+  await page.waitForTimeout(150);
+  check((await wlHeld(page)) === 1, `wake lock: o novo request voltou um sentinel nao liberado (${await wlHeld(page)})`);
+  await ctx.close();
+}
+
+// no Screen Wake Lock API: inert, and the spinner keeps working
+{
+  const { ctx, page, errors } = await wakeLockHarness({ supported: false });
+  const hasApi = await page.evaluate(() => 'wakeLock' in navigator);
+  check(hasApi === false, `wake lock: a stub remove mesmo a API nativa ('wakeLock' in navigator = ${hasApi})`);
+  check(errors.length === 0, `wake lock: sem API, sem erro de pagina (${errors.join(' | ') || 'nenhum'})`);
+  await page.click('#board');
+  await page.waitForTimeout(150);
+  const spinning = await page.evaluate(() => ({
+    disabled: document.getElementById('board').disabled,
+    eyebrow: document.getElementById('resultEyebrow').textContent,
+  }));
+  check(spinning.disabled === true && spinning.eyebrow === 'girando',
+        `wake lock: sem API, a roleta continua girando (disabled=${spinning.disabled}, "${spinning.eyebrow}")`);
+  await ctx.close();
+}
+
 // ---- screenshots: same framing as the ones the readme embeds ----
 if (WANT_SHOTS) {
   const SHOTS = [
