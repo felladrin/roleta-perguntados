@@ -1,64 +1,64 @@
 # Roleta do Perguntados
 
-A spinner wheel for Perguntados / Trivia Crack board game sessions. Tap the board and the pointer spins until it stops on a category.
+Roleta para partidas de Perguntados (Trivia Crack): toque no tabuleiro e o ponteiro gira até parar numa categoria.
 
-**Live:** https://www.victornogueira.app/roleta-perguntados/
+**Ao vivo:** https://www.victornogueira.app/roleta-perguntados/
 
-| Light | Dark |
+| Claro | Escuro |
 | --- | --- |
-| <img src="screenshots/light.png" alt="Spinner in light theme, pointer stopped on Ciências" width="100%"> | <img src="screenshots/dark.png" alt="Spinner in dark theme, pointer stopped on Entretenimento" width="100%"> |
+| <img src="screenshots/light.png" alt="Roleta no tema claro, com o ponteiro parado em Ciências" width="100%"> | <img src="screenshots/dark.png" alt="Roleta no tema escuro, com o ponteiro parado em Entretenimento" width="100%"> |
 
-## What it does
+## O que faz
 
-- Seven sectors: Geografia, História, Ciências, Arte, Esportes, Entretenimento and Coroa. The **Coroa** toggle drops the wheel to six real sectors rather than skipping a drawn one.
-- The pointer spins over a fixed disc, the same way the cardboard spinner works.
-- One tick per sector the pointer crosses, decelerating along with it. **Som** turns it off.
-- Last eight rounds stay on screen.
-- Space bar spins. Honours `prefers-reduced-motion` (jumps straight to the result) and follows the system light/dark theme.
-- The screen stays on while the tab is visible, so a phone passed around the table does not sleep between the spin and the announcement. Uses the [Screen Wake Lock API](https://developer.mozilla.org/en-US/docs/Web/API/Screen_Wake_Lock_API): Baseline since March 2025, needs a secure context, and browsers without it get no lock and no error. The platform drops the lock when the tab goes to the background, and the page asks for a new one when it comes back.
-- The Coroa and Som choices persist in `localStorage`.
+- Sete setores: Geografia, História, Ciências, Arte, Esportes, Entretenimento e Coroa. O botão **Coroa** reduz a roleta para seis setores reais, em vez de pular um setor desenhado.
+- O ponteiro gira sobre um disco fixo, igual à roleta de papelão do jogo.
+- Um tique a cada setor que o ponteiro cruza, desacelerando junto com ele. **Som** desliga o áudio.
+- As últimas oito rodadas ficam na tela.
+- A barra de espaço também gira. Respeita `prefers-reduced-motion` (vai direto para o resultado) e segue o tema claro/escuro do sistema.
+- A tela fica acesa enquanto a aba está visível, para o celular passado na mesa não dormir entre o giro e o anúncio da categoria. Usa a [Screen Wake Lock API](https://developer.mozilla.org/en-US/docs/Web/API/Screen_Wake_Lock_API): Baseline desde março de 2025, precisa de contexto seguro, e navegadores sem a API ficam sem o lock e sem erro. A plataforma libera o lock quando a aba vai para segundo plano, e a página pede um novo quando ela volta.
+- As escolhas de Coroa e Som ficam salvas no `localStorage`.
 
-## Fair draw
+## Sorteio justo
 
-The target sector is drawn uniformly first, and the final angle is derived from it — never the other way round. The landing point is always at least 9.8° from a sector border, so the pointer never stops somewhere ambiguous.
+O setor do resultado é sorteado primeiro, com distribuição uniforme, e o ângulo final é derivado dele (nunca o contrário). O ponto de parada fica sempre a pelo menos 9,77° da borda de um setor, então o ponteiro nunca para numa posição ambígua.
 
-Verified two ways: 600,000 simulated spins stay within the expected range for a uniform draw (χ² = 6.4 on 6 d.f. for seven sectors, 8.5 on 5 d.f. for six), and 48 headless-browser spins hit-test the pixel under the pointer tip against the announced category, matching every time in both modes.
+Verificado de duas formas: 600.000 giros simulados ficam dentro da faixa esperada de um sorteio uniforme (χ² = 6,4 com 6 graus de liberdade para sete setores, e 8,5 com 5 graus de liberdade para seis), e 48 giros num navegador sem interface testam o pixel sob a ponta do ponteiro contra a categoria anunciada, e coincidem em todas, nos dois modos.
 
-## Running it
+## Como rodar
 
-One file, no build step, no dependencies:
+Um arquivo só, sem build, sem dependências:
 
 ```sh
 python3 -m http.server
 ```
 
-Then open `http://localhost:8000`. Opening `index.html` straight from the filesystem works too.
+Depois abra `http://localhost:8000`. Abrir o `index.html` direto do sistema de arquivos também funciona.
 
-The only external request is the Google Fonts stylesheet (Baloo 2 and Archivo). Offline, it falls back to system faces.
+A única requisição externa é a folha de estilos do Google Fonts (Baloo 2 e Archivo). Offline, entram as fontes do sistema.
 
-## Verification
+## Verificação
 
-The color and landing checks live in `verify/check.mjs`. Dev-only tooling: the page itself stays a single dependency-free file.
+Os checks de cor e de parada estão em `verify/check.mjs`. É ferramenta de desenvolvimento: a página continua sendo um arquivo único, sem dependências.
 
 ```sh
 npm install
-npm run verify   # palette + forced-landing checks
-npm run shots    # the above, then rewrite screenshots/{light,dark}.png
+npm run verify   # checks da paleta e da parada forçada
+npm run shots    # os mesmos checks, e regrava screenshots/{light,dark}.png
 ```
 
-It serves the repo over a throwaway local port and drives headless Chromium:
+Ela serve o repositório numa porta local descartável e controla um Chromium sem interface:
 
-- Every wedge fill, legend dot and icon stroke, with Coroa on (seven sectors) and off (six).
-- A forced stop on each of the seven categories, checking the result card carries that category's color and its text clears 3:1 against it. The palette has a bright yellow, so the text color is derived per category instead of fixed white.
-- The wake lock, with `navigator.wakeLock` and `document.visibilityState` stubbed so no real phone has to be put to sleep: requested on load, never doubled while one is held or in flight, re-requested on every return to visibility, and inert where the API is missing.
-- When regenerating the screenshots: the announced category, the history chips and the sector count.
+- O preenchimento de cada fatia, o ponto da legenda e o traço dos ícones, com Coroa ligada (sete setores) e desligada (seis).
+- Uma parada forçada em cada uma das sete categorias, conferindo se o cartão de resultado traz a cor daquela categoria e se o texto tem pelo menos 3:1 de contraste contra ela. A paleta tem um amarelo claro, então a cor do texto é derivada por categoria, em vez de ser branco fixo.
+- O wake lock, com `navigator.wakeLock` e `document.visibilityState` simulados, para nenhum celular de verdade precisar dormir: pedido no carregamento, nunca duplicado enquanto um lock está ativo ou em andamento, repetido a cada retorno à visibilidade, e inerte onde a API não existe.
+- Ao regerar as capturas de tela: a categoria anunciada, os chips do histórico e a contagem de setores.
 
-The fair-draw simulation above was run ad hoc and is not part of this script.
+A simulação do sorteio justo acima foi rodada à parte e não faz parte desse script.
 
-## Notes
+## Notas
 
-Perguntados and Trivia Crack are trademarks of Etermax. This is an unofficial spinner with its own icons, not affiliated with or endorsed by Etermax.
+Perguntados e Trivia Crack são marcas registradas da Etermax. Esta é uma roleta não oficial, com ícones próprios, sem afiliação com a Etermax e sem endosso dela.
 
-## License
+## Licença
 
 MIT
