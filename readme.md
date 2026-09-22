@@ -35,6 +35,24 @@ Then open `http://localhost:8000`. Opening `index.html` straight from the filesy
 
 The only external request is the Google Fonts stylesheet (Baloo 2 and Archivo). Offline, it falls back to system faces.
 
+## Verification
+
+The color and landing checks live in `verify/check.mjs`. Dev-only tooling: the page itself stays a single dependency-free file.
+
+```sh
+npm install
+npm run verify   # palette + forced-landing checks
+npm run shots    # the above, then rewrite screenshots/{light,dark}.png
+```
+
+It serves the repo over a throwaway local port and drives headless Chromium:
+
+- Every wedge fill, legend dot and icon stroke, with Coroa on (seven sectors) and off (six).
+- A forced stop on each of the seven categories, checking the result card carries that category's color and its text clears 3:1 against it. The palette has a bright yellow, so the text color is derived per category instead of fixed white.
+- When regenerating the screenshots: the announced category, the history chips and the sector count.
+
+The fair-draw simulation above was run ad hoc and is not part of this script.
+
 ## Notes
 
 Perguntados and Trivia Crack are trademarks of Etermax. This is an unofficial spinner with its own icons, not affiliated with or endorsed by Etermax.

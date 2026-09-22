@@ -1,0 +1,13 @@
+{
+  "name": "roleta-perguntados",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Dev-only tooling for the spinner. The page itself stays a single dependency-free file.",
+  "scripts": {
+    "verify": "node verify/check.mjs",
+    "shots": "node verify/check.mjs --shots"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}
